@@ -624,7 +624,7 @@ def rotation(self):
 </dd>
 <dt id="dynkin.RigidBody"><code class="flex name class">
 <span>class <span class="ident">RigidBody</span></span>
-<span>(</span><span>mass=None, gyradius=None, cog=None)</span>
+<span>(</span><span>inertia, cog=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Idealized rigid body implementation</p></div>
@@ -636,33 +636,31 @@ def rotation(self):
     &#34;&#34;&#34;
     Idealized rigid body implementation
     &#34;&#34;&#34;
-    def __init__(self, mass=None, gyradius=None, cog=None):
+    def __init__(self, inertia, cog=None):
         super().__init__()
         
-        assert mass &gt; 0, &#39;Mass must be greater than zero!&#39;
-        self._mass = mass
-        
-        gyradius = assert_3D_vector(gyradius)
-        assert (gyradius &gt; 0).all(), &#39;All gyradii must be greater than zero!&#39;
-        self._gyradius = gyradius
+        self._inertia = assert_6D_matrix(inertia)
         
         self._cog = self.align_child(
             position=cog
         )
+        
+    @classmethod
+    def from_mass_gyradii(cls, mass, gyradii, cog=None):
+        &#34;&#34;&#34;
+        Instantiate from mass and gyradii
+        &#34;&#34;&#34;
+        return cls(
+            generalized_inertia_matrix(mass, gyradii),
+            cog=cog
+            )
         
     @property
     def mass(self):
         &#34;&#34;&#34;
         Mass of this RigidBody
         &#34;&#34;&#34;
-        return self._mass
-    
-    @property
-    def gyradius(self):
-        &#34;&#34;&#34;
-        Gyradius of this RigidBody
-        &#34;&#34;&#34;
-        return self._gyradius
+        return self._inertia[0, 0]
     
     @property
     def CoG(self):
@@ -681,15 +679,6 @@ def rotation(self):
         C[:3, :3] = self.mass*skew(twist[3:])
         C[3:, 3:] = -skew(inertia[3:, 3:] @ twist[3:])
         return C
-    
-    def generalized_inertia_matrix(self):
-        &#34;&#34;&#34;
-        Returns generalized inertia matrix (6x6) of this RigidBody
-        &#34;&#34;&#34;
-        M = np.zeros((6,6))
-        M[:3, :3] = np.eye(3)*self.mass
-        M[3:, 3:] = np.diag(self.mass*self.gyradius**2)
-        return M
         
     def generalized_coordinates(self):
         &#34;&#34;&#34;
@@ -710,14 +699,15 @@ def rotation(self):
             *angular_velocity_to_deuler(self.attitude, twist[3:])
         ])
 
-    def acceleration(self, wrench):
+    def acceleration(self, wrench, additional_inertia=None):
         &#34;&#34;&#34;
         Returns the resulting acceleration from the given wrench
         &#34;&#34;&#34;
         f = assert_6D_vector(wrench)
+        additional_inertia = assert_6D_matrix(additional_inertia or np.zeros((6, 6)))
         twist = self.get_twist()
         H = motion_transformation_matrix(self.CoG.position)
-        I_cg = self.generalized_inertia_matrix()
+        I_cg = self._inertia + additional_inertia
         C_cg = self.coriolis_centripetal_matrix(I_cg, twist)
         I_b = H.T @ I_cg @ H
         C_b = H.T @ C_cg @ H
@@ -726,14 +716,15 @@ def rotation(self):
         
         return np.linalg.solve(I_b, f)
     
-    def wrench(self, acceleration):
+    def wrench(self, acceleration, additional_inertia=None):
         &#34;&#34;&#34;
         Returns the required wrench to obtain the given acceleration
         &#34;&#34;&#34;
         a = assert_6D_vector(acceleration)
+        additional_inertia = assert_6D_matrix(additional_inertia or np.zeros((6, 6)))
         twist = self.get_twist()
         H = motion_transformation_matrix(self.CoG.position)
-        I_cg = self.generalized_inertia_matrix()
+        I_cg = self._inertia + additional_inertia
         C_cg = self.coriolis_centripetal_matrix(I_cg, twist)
         I_b = H.T @ I_cg @ H
         C_b = H.T @ C_cg @ H
@@ -748,6 +739,29 @@ def rotation(self):
 <ul class="hlist">
 <li>dynkin.frame.Frame</li>
 </ul>
+<h3>Static methods</h3>
+<dl>
+<dt id="dynkin.RigidBody.from_mass_gyradii"><code class="name flex">
+<span>def <span class="ident">from_mass_gyradii</span></span>(<span>mass, gyradii, cog=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Instantiate from mass and gyradii</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def from_mass_gyradii(cls, mass, gyradii, cog=None):
+    &#34;&#34;&#34;
+    Instantiate from mass and gyradii
+    &#34;&#34;&#34;
+    return cls(
+        generalized_inertia_matrix(mass, gyradii),
+        cog=cog
+        )</code></pre>
+</details>
+</dd>
+</dl>
 <h3>Instance variables</h3>
 <dl>
 <dt id="dynkin.RigidBody.CoG"><code class="name">var <span class="ident">CoG</span></code></dt>
@@ -765,21 +779,6 @@ def CoG(self):
     return self._cog</code></pre>
 </details>
 </dd>
-<dt id="dynkin.RigidBody.gyradius"><code class="name">var <span class="ident">gyradius</span></code></dt>
-<dd>
-<div class="desc"><p>Gyradius of this RigidBody</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def gyradius(self):
-    &#34;&#34;&#34;
-    Gyradius of this RigidBody
-    &#34;&#34;&#34;
-    return self._gyradius</code></pre>
-</details>
-</dd>
 <dt id="dynkin.RigidBody.mass"><code class="name">var <span class="ident">mass</span></code></dt>
 <dd>
 <div class="desc"><p>Mass of this RigidBody</p></div>
@@ -792,14 +791,14 @@ def mass(self):
     &#34;&#34;&#34;
     Mass of this RigidBody
     &#34;&#34;&#34;
-    return self._mass</code></pre>
+    return self._inertia[0, 0]</code></pre>
 </details>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
 <dt id="dynkin.RigidBody.acceleration"><code class="name flex">
-<span>def <span class="ident">acceleration</span></span>(<span>self, wrench)</span>
+<span>def <span class="ident">acceleration</span></span>(<span>self, wrench, additional_inertia=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the resulting acceleration from the given wrench</p></div>
@@ -807,14 +806,15 @@ def mass(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def acceleration(self, wrench):
+<pre><code class="python">def acceleration(self, wrench, additional_inertia=None):
     &#34;&#34;&#34;
     Returns the resulting acceleration from the given wrench
     &#34;&#34;&#34;
     f = assert_6D_vector(wrench)
+    additional_inertia = assert_6D_matrix(additional_inertia or np.zeros((6, 6)))
     twist = self.get_twist()
     H = motion_transformation_matrix(self.CoG.position)
-    I_cg = self.generalized_inertia_matrix()
+    I_cg = self._inertia + additional_inertia
     C_cg = self.coriolis_centripetal_matrix(I_cg, twist)
     I_b = H.T @ I_cg @ H
     C_b = H.T @ C_cg @ H
@@ -863,25 +863,6 @@ def mass(self):
     return self.get_pose()</code></pre>
 </details>
 </dd>
-<dt id="dynkin.RigidBody.generalized_inertia_matrix"><code class="name flex">
-<span>def <span class="ident">generalized_inertia_matrix</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns generalized inertia matrix (6x6) of this RigidBody</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def generalized_inertia_matrix(self):
-    &#34;&#34;&#34;
-    Returns generalized inertia matrix (6x6) of this RigidBody
-    &#34;&#34;&#34;
-    M = np.zeros((6,6))
-    M[:3, :3] = np.eye(3)*self.mass
-    M[3:, 3:] = np.diag(self.mass*self.gyradius**2)
-    return M</code></pre>
-</details>
-</dd>
 <dt id="dynkin.RigidBody.generalized_velocities"><code class="name flex">
 <span>def <span class="ident">generalized_velocities</span></span>(<span>self)</span>
 </code></dt>
@@ -906,7 +887,7 @@ def mass(self):
 </details>
 </dd>
 <dt id="dynkin.RigidBody.wrench"><code class="name flex">
-<span>def <span class="ident">wrench</span></span>(<span>self, acceleration)</span>
+<span>def <span class="ident">wrench</span></span>(<span>self, acceleration, additional_inertia=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the required wrench to obtain the given acceleration</p></div>
@@ -914,14 +895,15 @@ def mass(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def wrench(self, acceleration):
+<pre><code class="python">def wrench(self, acceleration, additional_inertia=None):
     &#34;&#34;&#34;
     Returns the required wrench to obtain the given acceleration
     &#34;&#34;&#34;
     a = assert_6D_vector(acceleration)
+    additional_inertia = assert_6D_matrix(additional_inertia or np.zeros((6, 6)))
     twist = self.get_twist()
     H = motion_transformation_matrix(self.CoG.position)
-    I_cg = self.generalized_inertia_matrix()
+    I_cg = self._inertia + additional_inertia
     C_cg = self.coriolis_centripetal_matrix(I_cg, twist)
     I_b = H.T @ I_cg @ H
     C_b = H.T @ C_cg @ H
@@ -1163,10 +1145,9 @@ def translation(self):
 <li><code><a title="dynkin.RigidBody.CoG" href="#dynkin.RigidBody.CoG">CoG</a></code></li>
 <li><code><a title="dynkin.RigidBody.acceleration" href="#dynkin.RigidBody.acceleration">acceleration</a></code></li>
 <li><code><a title="dynkin.RigidBody.coriolis_centripetal_matrix" href="#dynkin.RigidBody.coriolis_centripetal_matrix">coriolis_centripetal_matrix</a></code></li>
+<li><code><a title="dynkin.RigidBody.from_mass_gyradii" href="#dynkin.RigidBody.from_mass_gyradii">from_mass_gyradii</a></code></li>
 <li><code><a title="dynkin.RigidBody.generalized_coordinates" href="#dynkin.RigidBody.generalized_coordinates">generalized_coordinates</a></code></li>
-<li><code><a title="dynkin.RigidBody.generalized_inertia_matrix" href="#dynkin.RigidBody.generalized_inertia_matrix">generalized_inertia_matrix</a></code></li>
 <li><code><a title="dynkin.RigidBody.generalized_velocities" href="#dynkin.RigidBody.generalized_velocities">generalized_velocities</a></code></li>
-<li><code><a title="dynkin.RigidBody.gyradius" href="#dynkin.RigidBody.gyradius">gyradius</a></code></li>
 <li><code><a title="dynkin.RigidBody.mass" href="#dynkin.RigidBody.mass">mass</a></code></li>
 <li><code><a title="dynkin.RigidBody.wrench" href="#dynkin.RigidBody.wrench">wrench</a></code></li>
 </ul>
