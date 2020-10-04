@@ -1,4 +1,5 @@
 import numpy as np
+from functools import partial
 
 from . import assert_3D_vector, assert_6D_vector, assert_6D_matrix
 from .frame import Frame, transform
@@ -36,6 +37,8 @@ class RigidBody(Frame):
             position=cog
         )
         
+        self._extra_inertia = list()
+        
     @property
     def mass(self):
         """
@@ -56,6 +59,16 @@ class RigidBody(Frame):
         Reference to Centre of Gravity Frame of this RigidBody
         """
         return self._cog
+    
+    def add_extra_inertia(self, inertia, frame):
+        """
+        Adds extra inertia to RigidBody
+        """
+        inertia = assert_6D_matrix(inertia)
+        assert(isinstance(frame, Frame))
+        tup = (inertia, frame)
+        self._extra_inertia.append(tup)
+        return partial(self._extra_inertia.remove, tup)
     
     def coriolis_centripetal_matrix(self, inertia, twist):
         """
