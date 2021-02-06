@@ -14,13 +14,13 @@ with open('requirements.txt') as f:
 
 setup(
     name = "dynkin",
-    version = "0.2.0",
+    version = "0.2.1",
     author = "Fredrik Olsson",
     author_email='freol@outlook.com',
     maintainer='Fredrik Olsson',
     maintainer_email='freol@outlook.com',
     description = ("""A toolkit for 3D dynamics and kinematics"""),
-    url = "https://github.com/freol35241/dynkin",
+    url = "https://github.com/freol35241/pydynkin",
     packages=['dynkin'],
     long_description=read('README.md'),
     long_description_content_type="text/markdown",

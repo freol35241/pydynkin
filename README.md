@@ -1,12 +1,14 @@
-# dynkin
+# pydynkin - A python version of `dynkin`
 
 [![PyPI version shields.io](https://img.shields.io/pypi/v/dynkin.svg)](https://pypi.python.org/pypi/dynkin/)
-![](https://github.com/freol35241/dynkin/workflows/dynkin/badge.svg)
-[![codecov](https://codecov.io/gh/freol35241/dynkin/branch/master/graph/badge.svg)](https://codecov.io/gh/freol35241/dynkin)
+![](https://github.com/freol35241/pydynkin/workflows/dynkin/badge.svg)
+[![codecov](https://codecov.io/gh/freol35241/pydynkin/branch/master/graph/badge.svg)](https://codecov.io/gh/freol35241/pydynkin)
 
 A toolkit for 3D dynamics and kinematics of rigid bodies using the YPR euler angle convention.
 
-[**--> Docs <--**](https://freol35241.github.io/dynkin/)
+[**--> Docs <--**](https://freol35241.github.io/pydynkin/)
+
+**Note:** `dynkin` is also available in a C++ version, available here: https://github.com/freol35241/dynkin
 
 ## General
 
